@@ -15,13 +15,15 @@ Rules:
 ### 1) Install
 ```bash
 npm install
-````
+```
 
 ### 2) Environment
 
+```bash
 Copy `.env.example` to `.env` and fill values.
+```
 
-###3) Run migrations
+### 3) Run migrations
 
 Generate a migration from your Entities (example):
 
