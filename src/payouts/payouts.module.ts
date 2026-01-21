@@ -12,6 +12,7 @@ import { AuditPolicy } from './audit/audit-policy';
 import { BankApiToken } from './bank/bank-api';
 import { MockBankApi } from './bank/mock-bank-api';
 import { RetryService } from './retry/retry.service';
+import { ApiResponseService } from 'src/common/api-response.service';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { RetryService } from './retry/retry.service';
     AuditPolicy,
     AuditService,
     RetryService,
+    ApiResponseService,
     {
       provide: BankApiToken,
       useClass: MockBankApi
