@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { typeOrmOptions } from './database/typeorm.config';
+import { ApiResponseService } from './common/api-response.service';
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { typeOrmOptions } from './database/typeorm.config';
     PayoutsModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ApiResponseService],
 })
 export class AppModule { }
