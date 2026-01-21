@@ -1,98 +1,332 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Payout processor (NestJS + TypeORM)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This app shows a safe way to process payouts with:
+- Atomic wallet debit
+- Idempotency
+- Audit logging
+- Retry and recovery for bank failures
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Rules:
+- No pre-built payout libraries
+- Do not store sensitive data in audit JSON
 
-## Description
+## Quick start
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### 1) Install
+```bash
+npm install
+````
 
-## Project setup
+### 2) Environment
+
+Copy `.env.example` to `.env` and fill values.
+
+###3) Run migrations
+
+Generate a migration from your Entities (example):
 
 ```bash
-$ npm install
+npm run typeorm -- -d src/database/data-source.ts migration:generate src/migrations/InitialMigration -p
 ```
 
-## Compile and run the project
+Run migrations:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run migration:run
 ```
 
-## Run tests
+Revert last migration (optional):
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run migration:revert
 ```
 
-## Deployment
+### 4) Seed data (wallet balances)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+This app needs a wallet balance to test payouts. You can seed the wallet using SQL.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Seed NGN wallet for merchant_123 with 50000:
+
+```sql
+INSERT INTO wallets (merchant_id, currency, balance_available)
+VALUES ('merchant_123', 'NGN', 50000.00)
+ON CONFLICT (merchant_id, currency)
+DO UPDATE SET balance_available = EXCLUDED.balance_available, updated_at = now();
+```
+
+Optional: seed USD wallet for merchant_123 with 200:
+
+```sql
+INSERT INTO wallets (merchant_id, currency, balance_available)
+VALUES ('merchant_123', 'USD', 200.00)
+ON CONFLICT (merchant_id, currency)
+DO UPDATE SET balance_available = EXCLUDED.balance_available, updated_at = now();
+```
+
+You can run the SQL using any Postgres client connected to your database.
+
+### 5) Start the app
 
 ```bash
-$ npm install -g mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Swagger documentation
 
-## Resources
+Swagger UI:
 
-Check out a few resources that may come in handy when working with NestJS:
+* [http://localhost:3000/docs](http://localhost:3000/docs)
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+OpenAPI JSON:
 
-## Support
+* [http://localhost:3000/docs-json](http://localhost:3000/docs-json)
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Main endpoints:
 
-## Stay in touch
+* POST /payouts/process
+* GET /payouts/:id
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Example request:
 
-## License
+```json
+{
+  "merchantId": "merchant_123",
+  "amount": 10000,
+  "currency": "NGN",
+  "idempotencyKey": "idem_key_001"
+}
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Example success response:
+
+```json
+{
+  "status": "success",
+  "message": "Payout processed",
+  "data": {
+    "payoutId": "3f8e0b61-8f9c-4a3b-8f79-8b2d0bb7a1f2",
+    "status": "SUCCESS"
+  }
+}
+```
+
+Example error response:
+
+```json
+{
+  "status": "error",
+  "message": "insufficient funds",
+  "data": null
+}
+```
+
+## 1. Schema design (tables and key fields)
+
+The design uses a few core tables to ensure correctness and traceability.
+
+### wallets
+
+Stores the available wallet balance for each merchant and currency.
+Key fields:
+
+* id (uuid)
+* merchant_id (text)
+* currency (text, NGN or USD)
+* balance_available (numeric)
+
+Key constraint:
+
+* UNIQUE (merchant_id, currency)
+
+### payout_requests
+
+Stores idempotency records.
+Key fields:
+
+* id (uuid)
+* merchant_id (text)
+* idempotency_key (text)
+* request_hash (text, sha256 of merchantId, amount, currency)
+* payout_id (uuid, nullable)
+* status (CREATED, IN_PROGRESS, COMPLETED, FAILED_FINAL)
+
+Key constraint:
+
+* UNIQUE (merchant_id, idempotency_key)
+
+### payouts
+
+Stores the payout state machine.
+Key fields:
+
+* id (uuid)
+* merchant_id (text)
+* amount (numeric)
+* currency (text)
+* status (PENDING, SUCCESS, FAILED, NEEDS_RETRY)
+* attempt_count (int)
+* next_retry_at (timestamptz, nullable)
+* external_reference (text, nullable)
+* failure_reason (text, nullable)
+
+Key index:
+
+* index on (status, next_retry_at) for selecting due retries
+
+### wallet_ledger_entries
+
+Append-only ledger for balance changes.
+Key fields:
+
+* id (uuid)
+* wallet_id (uuid)
+* payout_id (uuid, nullable)
+* entry_type (DEBIT or CREDIT)
+* amount (numeric)
+* balance_before (numeric)
+* balance_after (numeric)
+* correlation_id (text)
+
+Purpose:
+
+* Financial audit trail for every wallet balance change
+
+### audit_events
+
+Append-only operational audit logs.
+Key fields:
+
+* id (uuid)
+* entity_type (text)
+* entity_id (text)
+* event_type (text)
+* payload_json (jsonb)
+* actor (text)
+* created_at (timestamptz)
+
+Important:
+
+* payload_json must never contain sensitive data
+
+## 2. Transaction boundaries
+
+The payout flow is split into safe phases to avoid holding DB locks during network calls.
+
+### Phase A (single DB transaction)
+
+Goals:
+
+* enforce idempotency
+* lock wallet row
+* debit funds atomically
+* create payout record
+* write ledger entry
+* write audit events
+
+This phase uses a transaction and a wallet row lock (pessimistic write).
+
+### Phase B (outside DB transaction)
+
+Goal:
+
+* call the bank API
+
+This is outside the transaction so DB locks are not held during slow or unreliable network calls.
+
+### Phase C (final DB transaction)
+
+Goals:
+
+* mark payout SUCCESS and store external reference, or
+* mark payout NEEDS_RETRY and schedule next_retry_at, or
+* mark payout FAILED and credit wallet back (compensation)
+
+This phase writes audit events for the outcome.
+
+## 3. Idempotency strategy
+
+We enforce idempotency with a DB unique constraint:
+
+* payout_requests has UNIQUE (merchant_id, idempotency_key)
+
+Logic:
+
+1. On first request, we create a payout_requests row, then create a payout and store payout_id in payout_requests.
+2. On subsequent requests with the same merchantId and idempotencyKey:
+
+   * return the linked payout status, no new payout is created, no extra debit happens.
+
+Idempotency misuse protection:
+
+* We store request_hash (sha256 of merchantId, amount, currency).
+* If the same idempotencyKey is reused with different amount or currency:
+
+  * we reject the request (HTTP 400).
+
+## 4. Audit logging approach
+
+We keep two forms of logs:
+
+1. wallet_ledger_entries is the financial truth. Every debit and credit is recorded with before and after balances.
+2. audit_events is operational logging for debugging and traceability of state changes.
+
+PCI and sensitive data rule:
+
+* audit_events.payload_json must never store sensitive data like:
+
+  * full card numbers, CVV, PIN
+  * bank credentials
+  * account numbers, routing numbers, IBAN
+  * passwords, tokens, Authorization headers
+
+Enforcement:
+
+* We use an allowlist per event type.
+* We drop any keys that are not allowed.
+* We hash idempotencyKey and externalReference before storing them in audit logs.
+
+## 5. Retry and recovery explanation
+
+Retryable errors:
+
+* bank timeout
+* temporary bank failure
+
+When retryable errors happen:
+
+* payout status becomes NEEDS_RETRY
+* attempt_count increments
+* next_retry_at is set using exponential backoff
+* response to the caller is PENDING (because payout is not final yet)
+
+Retry worker:
+
+* A scheduled worker runs every few seconds (dev default).
+* It selects due payouts:
+
+  * status = NEEDS_RETRY
+  * next_retry_at <= now()
+* It attempts the bank transfer again.
+
+Success on retry:
+
+* payout moves to SUCCESS
+* external_reference is saved
+* audit event is written
+
+Permanent failure:
+
+* payout moves to FAILED
+* wallet is credited back using a ledger CREDIT entry
+* audit events are written for failure and compensation
+
+Notes:
+
+* In production, it is best to claim due payouts using row locks and then call the bank outside long DB locks.
+* For this assessment, the worker is simple and focused on clarity.
+
+## Testing
+
+Use Swagger to run requests:
+
+* [http://localhost:3000/docs](http://localhost:3000/docs)
