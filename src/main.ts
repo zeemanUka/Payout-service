@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,6 +16,8 @@ async function bootstrap() {
     })
   );
 
+    app.useGlobalFilters(new GlobalHttpExceptionFilter());
+    
     const swaggerConfig = new DocumentBuilder()
     .setTitle('StraitPay Payout API')
     .setDescription('Simple payout endpoints for processing and querying payouts')
