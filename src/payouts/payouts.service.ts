@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import { WalletEntity } from './entities/wallet.entity';
 import { PayoutEntity } from './entities/payout.entity';

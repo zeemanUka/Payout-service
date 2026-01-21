@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
@@ -20,6 +20,7 @@ export class PayoutsController {
   ) {}
 
   @Post('process')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Process a payout request' })
   @ApiOkResponse({ description: 'Common response envelope', type: PayoutResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid request or insufficient funds' })
