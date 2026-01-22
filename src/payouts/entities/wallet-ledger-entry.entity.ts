@@ -1,8 +1,9 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
 export type LedgerEntryType = 'DEBIT' | 'CREDIT';
 
 @Entity({ name: 'wallet_ledger_entries' })
+@Unique('uq_ledger_payout_entry_type', ['payoutId', 'entryType'])
 export class WalletLedgerEntryEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
