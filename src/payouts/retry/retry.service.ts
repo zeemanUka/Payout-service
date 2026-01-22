@@ -5,6 +5,9 @@ import { PayoutEntity } from '../entities/payout.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuditPolicy } from '../audit/audit-policy';
 import { BankApi, BankApiToken, BankPermanentError, BankTemporaryError, BankTimeoutError } from '../bank/bank-api';
+import { WalletEntity } from '../entities/wallet.entity';
+import { WalletLedgerEntryEntity } from '../entities/wallet-ledger-entry.entity';
+
 
 @Injectable()
 export class RetryService {
@@ -15,7 +18,7 @@ export class RetryService {
     private audit: AuditService,
     private policy: AuditPolicy,
     @Inject(BankApiToken) private bankApi: BankApi
-  ) {}
+  ) { }
 
   private computeNextRetry(attempt: number): Date {
     const baseMs = Number(process.env.RETRY_BASE_MS ?? '2000');
@@ -47,10 +50,65 @@ export class RetryService {
         try {
           const attemptNext = p.attemptCount + 1;
           if (attemptNext > maxAttempts) {
+
+            const walletRepo = manager.getRepository(WalletEntity);
+            const ledgerRepo = manager.getRepository(WalletLedgerEntryEntity);
+
+            const existingCredit = await ledgerRepo.count({
+              where: { payoutId: p.id, entryType: 'CREDIT' }
+            });
+
             p.status = 'FAILED';
             p.failureReason = 'MAX_RETRY_EXCEEDED';
             p.nextRetryAt = null;
             await payoutRepo.save(p);
+
+            if (existingCredit === 0) {
+              const wallet = await walletRepo
+                .createQueryBuilder('w')
+                .setLock('pessimistic_write')
+                .where('w.merchant_id = :merchantId', { merchantId: p.merchantId })
+                .andWhere('w.currency = :currency', { currency: p.currency })
+                .getOne();
+
+              if (!wallet) {
+                throw new Error(`Wallet not found for merchant ${p.merchantId} ${p.currency}`);
+              }
+
+              const amount = Number(p.amount);
+              const before = Number(wallet.balanceAvailable);
+              const after = before + amount;
+
+              wallet.balanceAvailable = after.toFixed(2);
+              await walletRepo.save(wallet);
+
+              await ledgerRepo.save(
+                ledgerRepo.create({
+                  walletId: wallet.id,
+                  payoutId: p.id,
+                  entryType: 'CREDIT',
+                  amount: amount.toFixed(2),
+                  currency: p.currency,
+                  balanceBefore: before.toFixed(2),
+                  balanceAfter: after.toFixed(2),
+                  correlationId: `retry_max_${p.id}`
+                })
+              );
+
+              await this.audit.writeEvent({
+                entityType: 'WALLET',
+                entityId: wallet.id,
+                eventType: 'WALLET_CREDITED_COMPENSATION',
+                payload: {
+                  merchantId: p.merchantId,
+                  walletId: wallet.id,
+                  payoutId: p.id,
+                  amount,
+                  currency: p.currency
+                },
+                actor: 'SYSTEM'
+              });
+            }
 
             await this.audit.writeEvent({
               entityType: 'PAYOUT',
@@ -59,8 +117,10 @@ export class RetryService {
               payload: { payoutId: p.id, reasonCode: 'MAX_RETRY_EXCEEDED' },
               actor: 'SYSTEM'
             });
+
             continue;
           }
+
 
           // Call bank outside DB lock window in production.
           const bankRes = await this.bankApi.transfer({
