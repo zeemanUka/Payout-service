@@ -188,6 +188,12 @@ Key fields:
 * balance_before (numeric)
 * balance_after (numeric)
 * correlation_id (text)
+    - Unique constraint:
+       - UNIQUE (payout_id, entry_type)
+
+       - Meaning: for each payout, only one DEBIT and one CREDIT can exist.
+
+       - Purpose: prevents double debit or double refund even if workers retry.
 
 Purpose:
 
@@ -300,6 +306,8 @@ When retryable errors happen:
 * attempt_count increments
 * next_retry_at is set using exponential backoff
 * response to the caller is PENDING (because payout is not final yet)
+* When max retries are exceeded, the system credits back the wallet.
+* Double refunds are prevented by the database uniqueness rule (ledger constraint), so even if the retry worker runs twice, the second credit insert is rejected.
 
 Retry worker:
 
